@@ -57,7 +57,7 @@ async def run(task_desc: str = Query(None, alias="task")):
             max_similarity = 0
             for row in reader:
                 task = row[0]
-                task_embedding = np.array(row[1:])
+                task_embedding = np.array(row[1:], dtype=np.float32)  # Convert to float
                 similarity = np.dot(query_embedding, task_embedding) / (np.linalg.norm(query_embedding) * np.linalg.norm(task_embedding))
                 if similarity > max_similarity:
                     max_similarity = similarity
