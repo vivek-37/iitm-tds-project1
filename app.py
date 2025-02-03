@@ -12,7 +12,7 @@ app = FastAPI()
 
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])   
 
-AIPROXY_TOKEN = os.environ["AIPROXY_TOKEN"]
+AIPROXY_TOKEN = os.getenv("AIPROXY_TOKEN")
 
 @app.get("/read")
 async def read(path: str = Query(None, alias="path")):
