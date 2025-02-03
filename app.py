@@ -20,7 +20,11 @@ async def read(path: str = Query(None, alias="path")):
     Read the path and return the file content, iff the path does not access the any other path except '/data'.
     Return the file content.
     '''
-    return 
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    with open(path, "r") as file:
+        content = file.read()
+    return content 
 
 # Find a way to store embeddings of the tasks instead of calling the API each time the program runs.
 
