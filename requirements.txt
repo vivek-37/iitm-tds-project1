@@ -4,3 +4,4 @@ uvicorn
 numpy
 python-multipart
 uv
+requests
