@@ -29,6 +29,7 @@ phaseA = {
 }
 
 functions = {
+    "Install uv (if required) and run https://raw.githubusercontent.com/sanand0/tools-in-data-science-public/tds-2025-01/datagen.py with ${user.email} as the only argument.": "install_and_run(url:str, email:str)",
     "Format the contents of /data/format.md using prettier@3.4.2, updating the file in-place": "format_md_with_prettier(version:str, source:str)",
     "The file /data/dates.txt contains a list of dates, one per line. Count the number of Wednesdays in the list, and write just the number to /data/dates-wednesdays.txt": "count_weekdays(weekday: str, source: str, destination: str)",
     "Sort the array of contacts in /data/contacts.json by last_name, then first_name, and write the result to /data/contacts-sorted.json": "sort_contacts(source: str, destination: str)",
@@ -44,9 +45,25 @@ tools = [
     {
         "type": "function",
         "function": {
+            "name": "install_and_run",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "url": {"type": "string"},
+                    "email": {"type": "string"}
+                },
+                "required": ["url", "email"],
+                "additionalProperties": False
+            },
+            "strict": True
+        }
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "format_md_with_prettier",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "version": {"type": "string"},
                     "source": {"type": "string"}
@@ -62,7 +79,7 @@ tools = [
         "function": {
             "name": "count_weekdays",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "weekday": {"type": "string"},
                     "source": {"type": "string"},
@@ -79,7 +96,7 @@ tools = [
         "function": {
             "name": "sort_contacts",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
@@ -95,7 +112,7 @@ tools = [
         "function": {
             "name": "write_recent_logs",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "no_of_logs": {"type": "string"},
                     "source": {"type": "string"},
@@ -112,7 +129,7 @@ tools = [
         "function": {
             "name": "extract_h1",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "source": {"type": "string"},
                     "index_path": {"type": "string"},
@@ -129,7 +146,7 @@ tools = [
         "function": {
             "name": "extract_email",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
@@ -145,7 +162,7 @@ tools = [
         "function": {
             "name": "extract_credit_card",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
@@ -161,7 +178,7 @@ tools = [
         "function": {
             "name": "find_similar_comments",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
@@ -177,7 +194,7 @@ tools = [
         "function": {
             "name": "total_sales",
             "parameters": {
-                type: "object",
+                "type": "object",
                 "properties": {
                     "ticket_type": {"type": "string"},
                     "source": {"type": "string"},
@@ -191,7 +208,7 @@ tools = [
     }
 ]
 
-def extractParams(task_desc, matched_task):
+def extractParams(task_desc):
     ''' 
     Extract the parameters from the task description.
     '''
@@ -211,8 +228,10 @@ def extractParams(task_desc, matched_task):
         "response_format": {"type": "json_object"}
     }
     response = requests.post(url, json=payload, headers=headers)
+    print(response.json()['choices'][0]['message']['tool_calls'][0]['function'])
     return response.json()['choices'][0]['message']['tool_calls'][0]['function']
 
+# needs to be post not get
 @app.get("/read")
 async def read(path: str = Query(None, alias="path")):
     ''' 
@@ -227,7 +246,7 @@ async def read(path: str = Query(None, alias="path")):
 
 # Find a way to store embeddings of the tasks instead of calling the API each time the program runs.
 
-@app.post("/run")
+@app.get("/run")
 async def run(task_desc: str = Query(None, alias="task")):
     ''' 
     Identify the task by embedding and comparing similarity with the tasks defined.
@@ -244,7 +263,9 @@ async def run(task_desc: str = Query(None, alias="task")):
         "input": task_desc
     }
 
+    print("Calling the openAI API")
     response = requests.post(url, json=payload, headers=headers)
+
 
     if response.status_code == 200:
         query_embedding = np.array(response.json()["data"][0]["embedding"])
@@ -253,6 +274,7 @@ async def run(task_desc: str = Query(None, alias="task")):
             reader = csv.reader(f)
             next(reader)  # Skip the header row 
             max_similarity = 0
+            matched_task = None
             for row in reader:
                 task = row[0]
                 task_embedding = np.array(row[1:], dtype=np.float32)  # Convert to float
@@ -264,9 +286,29 @@ async def run(task_desc: str = Query(None, alias="task")):
             print(task_desc)
             print(max_similarity)
 
+
+        params = extractParams(task_desc)
+        print(params)
+        '''
+        {'name': 'install_and_run', 'arguments': '{"url":"https://raw.githubusercontent.com/sanand0/tools-in-data-science-public/tds-2025-01/project-1/datagen.py","email":"23f3001745@study.iitm.ac.in"}'}
+        '''
+        # convert the arguments to a dictionary
+        params['arguments'] = json.loads(params['arguments'])
+        print(params)
+
+        # convert the parameters to a list
+        params_list = []
+        for key, value in params['arguments'].items():
+            params_list.append(value)
+        print(params_list)
+
+        # convert the parameters into a dictionary as function : parameter list
+        function_params = {params['name']: params_list}
+        print(function_params)
+
         if matched_task == phaseA["A1"]:
             subprocess.run(["pip", "install", "uv"])
-            subprocess.run(["uv", "run", "https://raw.githubusercontent.com/sanand0/tools-in-data-science-public/tds-2025-01/datagen.py", "23f3001745@ds.study.iitm.ac.in"])
+            subprocess.run(["uv", "run", params_list[0], params_list[1]])
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
         elif matched_task == phaseA["A2"]:
             # Call the function to execute the task
@@ -296,4 +338,5 @@ async def run(task_desc: str = Query(None, alias="task")):
         elif matched_task == phaseA["A10"]:
             # Call the function to execute the task
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
-    return
+    else:
+        return JSONResponse(content={"error": "Error in calling the OpenAI API"})
