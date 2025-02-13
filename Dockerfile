@@ -6,6 +6,9 @@ COPY requirements.txt ./
 
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Create the /data directory and set permissions to make it writable by all users
+RUN mkdir -p /data && chmod 777 /data
+
 COPY . .
 
 EXPOSE 8000

@@ -34,7 +34,7 @@ functions = {
     "The file /data/dates.txt contains a list of dates, one per line. Count the number of Wednesdays in the list, and write just the number to /data/dates-wednesdays.txt": "count_weekdays(weekday: str, source: str, destination: str)",
     "Sort the array of contacts in /data/contacts.json by last_name, then first_name, and write the result to /data/contacts-sorted.json": "sort_contacts(source: str, destination: str)",
     "Write the first line of the 10 most recent .log file in /data/logs/ to /data/logs-recent.txt, most recent first": "write_recent_logs(no_of_logs: str, source: str, destination: str)",
-    "Find all Markdown (.md) files in /data/docs/. For each file, extract the first occurrance of each H1 (i.e. a line starting with # ). Create an index file /data/docs/index.json that maps each filename (without the /data/docs/ prefix) to its title (e.g. {\"README.md\": \"Home\", \"path/to/large-language-models.md\": \"Large Language Models\", ...})": "extract_h1(source: str, index_path: str, destination: str)",
+    "Find all Markdown (.md) files in /data/docs/. For each file, extract the first occurrance of each H1 (i.e. a line starting with # ). Create an index file /data/docs/index.json that maps each filename (without the /data/docs/ prefix) to its title (e.g. {\"README.md\": \"Home\", \"path/to/large-language-models.md\": \"Large Language Models\", ...})": "extract_h1(source: str, destination: str)",
     "/data/email.txt contains an email message. Pass the content to an LLM with instructions to extract the sender's email address, and write just the email address to /data/email-sender.txt": "extract_email(source: str, destination: str)",
     "/data/credit-card.png contains a credit card number. Pass the image to an LLM, have it extract the card number, and write it without spaces to /data/credit-card.txt": "extract_credit_card(source: str, destination: str)",
     "/data/comments.txt contains a list of comments, one per line. Using embeddings, find the most similar pair of comments and write them to /data/comments-similar.txt, one per line": "find_similar_comments(source: str, destination: str)",
@@ -132,10 +132,9 @@ tools = [
                 "type": "object",
                 "properties": {
                     "source": {"type": "string"},
-                    "index_path": {"type": "string"},
                     "destination": {"type": "string"}
                 },
-                "required": ["source", "index_path", "destination"],
+                "required": ["source", "destination"],
                 "additionalProperties": False
             },
             "strict": True
@@ -307,36 +306,243 @@ async def run(task_desc: str = Query(None, alias="task")):
         print(function_params)
 
         if matched_task == phaseA["A1"]:
+            # check if uv is installed, run datagen.py
             subprocess.run(["pip", "install", "uv"])
-            subprocess.run(["uv", "run", params_list[0], params_list[1]])
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            subprocess.run(["uv", "run", params_list[0], params_list[1]], show_output=True)
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A2"]:
-            # Call the function to execute the task
-            
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # format the unformatted markdown file with prettier
+            subprocess.run(["npx", params_list[0], "--write", params_list[1]], show_output=True)
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A3"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            from datetime import datetime
+
+            # Define supported date formats
+            formats = [
+                "%Y-%m-%d",       # 2024-03-14
+                "%d-%b-%Y",       # 14-Mar-2024
+                "%b %d, %Y",      # Mar 14, 2024
+                "%Y/%m/%d %H:%M:%S"  # 2024/03/14 15:30:45
+            ]
+
+            def parse_date(date_str):
+                """Attempt to parse a date string using multiple formats."""
+                for fmt in formats:
+                    try:
+                        return datetime.strptime(date_str.strip(), fmt).weekday()  # Returns weekday as int (0=Monday, 6=Sunday)
+                    except ValueError:
+                        continue  # Try next format
+                return None  # If no format matches
+
+            # Read input parameters
+            weekday_map = {"monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3, "friday": 4, "saturday": 5, "sunday": 6}
+            
+            target_weekday = params_list[0].strip().lower()
+            input_file = params_list[1]
+            output_file = params_list[2]
+
+            if target_weekday not in weekday_map:
+                return JSONResponse(content={"error": f"Invalid weekday: {target_weekday}"})
+
+            target_weekday_num = weekday_map[target_weekday]
+            day_count = 0
+
+            # Read the file and process dates
+            with open(input_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    weekday = parse_date(line)
+                    if weekday is not None and weekday == target_weekday_num:
+                        day_count += 1
+
+            # Write the result to output file
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(str(day_count) + "\n")
+
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A4"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # sort the contacts by last name and first name, source and destination files are json files
+            with open(params_list[0], "r") as f:
+                contacts = json.load(f)
+                contacts.sort(key=lambda x: (x["last_name"], x["first_name"]))
+
+                with open(params_list[1], "w") as f:
+                    json.dump(contacts, f, indent=4)
+
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A5"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # write the first line of the 10 most recent .log files to a new file
+            from pathlib import Path
+
+            log_dir = Path(params_list[0])
+            output_file = params_list[1]
+
+            # Get all .log files sorted by modification time (newest first)
+            log_files = sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
+
+            # Take the 10 most recent log files
+            recent_logs = log_files[:10]
+
+            first_lines = []
+
+            # Read the first line from each log file
+            for log_file in recent_logs:
+                try:
+                    with open(log_file, "r", encoding="utf-8") as f:
+                        first_line = f.readline().strip()
+                        first_lines.append(first_line)
+                except Exception as e:
+                    first_lines.append(f"[Error reading {log_file.name}: {str(e)}]")
+
+            # Write to the output file
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write("\n".join(first_lines) + "\n")
+
+            print(f"Extracted first lines from {len(recent_logs)} log files into {output_file}")
+
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A6"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+
+            def extract_first_h1(file_path):
+                """Extract the first H1 title from a Markdown file."""
+                with open(file_path, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("# "):  # Check for H1
+                            return line[2:].strip()  # Remove '# ' and extra spaces
+                return "Untitled"  # Default if no H1 found
+
+            # extract the first occurance of each H1 in the markdown files
+            docs_dir = params_list[0]
+            index = {}
+
+            # Walk through /data/docs/ to find .md files
+            for root, _, files in os.walk(docs_dir):
+                for file in files:
+                    if file.endswith(".md"):
+                        file_path = os.path.join(root, file)
+                        title = extract_first_h1(file_path)
+
+                        # Store in index without /data/docs/ prefix
+                        relative_path = os.path.relpath(file_path, docs_dir)
+                        index[relative_path] = title
+
+            # Save index to /data/docs/index.json
+            index_file = params_list[1]
+
+            with open(index_file, "w", encoding="utf-8") as f:
+                json.dump(index, f, indent=4)
+            
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A7"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # extract the sender's email address from the email
+            email_file = params_list[0]
+            output_file = params_list[1]
+
+            with open(email_file, "r", encoding="utf-8") as f:
+                email_content = f.read()
+
+            # Call the LLM to extract the email address
+            email_tool = [{
+                "type": "function",
+                "function": {
+                    "name": "extract_senders_email",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "sender's email": {"type": "string"}
+                        },
+                        "required": ["source", "destination"],
+                        "additionalProperties": False
+                    },
+                    "strict": True
+                }
+            }]
+
+            url_email = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
+
+            headers = {
+                "Authorization": f"Bearer {AIPROXY_TOKEN}",
+                "Content-Type": "application/json"
+            }
+
+            email_payload = {
+                "model": "gpt-4o-mini",
+                "messages": [
+                    {"role": "system","content": "Extract parameters for function execution and respond in JSON"},
+                    {"role": "user", "content": email_content}
+                ],
+                "tools": email_tool,
+                "tool_choice": "required",
+                "response_format": {"type": "json_object"}
+            }
+
+            email_response = requests.post(url_email, json=email_payload, headers=headers)
+            email = email_response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']['sender\'s email']
+            email = email.strip()
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(email)
+
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A8"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # extract the credit card number from the image
+            import base64
+            image_file = params_list[0]
+            output_file = params_list[1]
+
+            # Extract and validate card number
+            with open(image_path, "rb") as image_file:
+                image_data = image_file.read()
+                b64_image = base64.b64encode(image_data).decode('utf-8')
+
+                url_img = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
+
+                img_payload = {
+                    "model": "gpt-4-turbo",
+                    "messages": [
+                        {"role": "system", "content": "Extract only the credit card number from the given image. Do not include spaces or any other characters."},
+                        {
+                            "role": "user", "content": [
+                            {
+                                "type": "text",
+                                "text": "Extract the credit card digits from this image."
+                            }, 
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"} 
+                            }
+                            ]
+                        }
+                    ]
+                }
+                response = requests.post(url_img, headers, json=img_payload)
+                extracted_number = response["choices"][0]["message"]["content"].strip()
+                # Remove spaces and dashes to ensure proper formatting
+                formatted_number = extracted_number.replace(" ", "").replace("-", "")
+
+            card_number = formatted_number
+
+            # Write extracted card number to output file
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(card_number)
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A9"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # find the most similar pair of comments
+            input_file = params_list[0]
+            output_file = params_list[1]
+
+            
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
+
         elif matched_task == phaseA["A10"]:
-            # Call the function to execute the task
-            return JSONResponse(content={"task": matched_task, "similarity": max_similarity})
+            # find the total sales of the "Gold" ticket type
+            return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
     else:
         return JSONResponse(content={"error": "Error in calling the OpenAI API"})
