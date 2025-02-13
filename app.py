@@ -308,12 +308,12 @@ async def run(task_desc: str = Query(None, alias="task")):
         if matched_task == phaseA["A1"]:
             # check if uv is installed, run datagen.py
             subprocess.run(["pip", "install", "uv"])
-            subprocess.run(["uv", "run", params_list[0], params_list[1]], show_output=True)
+            subprocess.run(["uv", "run", params_list[0], params_list[1]])
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
         elif matched_task == phaseA["A2"]:
             # format the unformatted markdown file with prettier
-            subprocess.run(["npx", params_list[0], "--write", params_list[1]], show_output=True)
+            subprocess.run(["npx", "prettier@"+params_list[0], "--write", params_list[1]])
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
         elif matched_task == phaseA["A3"]:
