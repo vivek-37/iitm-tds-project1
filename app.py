@@ -38,7 +38,7 @@ functions = {
     "/data/email.txt contains an email message. Pass the content to an LLM with instructions to extract the sender's email address, and write just the email address to /data/email-sender.txt": "extract_email(source: str, destination: str)",
     "/data/credit-card.png contains a credit card number. Pass the image to an LLM, have it extract the card number, and write it without spaces to /data/credit-card.txt": "extract_credit_card(source: str, destination: str)",
     "/data/comments.txt contains a list of comments, one per line. Using embeddings, find the most similar pair of comments and write them to /data/comments-similar.txt, one per line": "find_similar_comments(source: str, destination: str)",
-    "The SQLite database file /data/ticket-sales.db has a tickets with columns type, units, and price. Each row is a customer bid for a concert ticket. What is the total sales of all the items in the “Gold” ticket type? Write the number in /data/ticket-sales-gold.txt": "total_sales(ticket_type: str, source: str, destination: str)"
+    "The SQLite database file /data/ticket-sales.db has a tickets with columns type, units, and price. Each row is a customer bid for a concert ticket. What is the total sales of all the items in the “Gold” ticket type? Write the number in /data/ticket-sales-gold.txt": "total_sales(sales_of_ticket_type: str, source: str, destination: str)"
 }
 
 tools = [
@@ -195,11 +195,11 @@ tools = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "ticket_type": {"type": "string"},
+                    "sales_of_ticket_type": {"type": "string"},
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
-                "required": ["ticket_type", "source", "destination"],
+                "required": ["sales_of_ticket_type", "source", "destination"],
                 "additionalProperties": False
             },
             "strict": True
@@ -538,11 +538,69 @@ async def run(task_desc: str = Query(None, alias="task")):
             input_file = params_list[0]
             output_file = params_list[1]
 
+            with open(input_file, "r", encoding="utf-8") as f:
+                comments = [line.strip() for line in f.readlines() if line.strip()]
             
+            # Calculate embeddings for each comment
+            payload_comm = {
+                "model": "text-embedding-3-small",
+                "input": comments
+            }
+
+            url_comm = "https://aiproxy.sanand.workers.dev/openai/v1/embeddings"
+
+            response_comm = requests.post(url_comm, json=payload_comm, headers=headers)
+
+            if response_comm.status_code == 200:
+                embeddings = {}
+
+                for comment, embs in zip(comments, response.json()["data"]):
+                    embeddings[comment] = np.array(embs["embedding"])
+
+                similarities = {}
+                for comment1 in comments:
+                    for comment2 in comments:
+                        if comment1 == comment2:
+                            continue        # skip same comments
+                        similarity = np.dot(comment1, comment2) / (np.linalg.norm(comment1) * np.linalg.norm(comment2))
+                        similarities[(comment1,comment2)] = similarity
+
+                # Find the most similar pair
+                most_similar_pair = max(similarities, key=similarities.get)
+                comment1, comment2 = most_similar_pair
+
+                # Write the most similar pair to the output file
+                with open(output_file, "w", encoding="utf-8") as f:
+                    f.write(f"{comment1}\n{comment2}\n")
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
         elif matched_task == phaseA["A10"]:
             # find the total sales of the "Gold" ticket type
+            '''
+            The SQLite database file /data/ticket-sales.db has a tickets with columns type, units, and price.
+            Each row is a customer bid for a concert ticket. What is the total sales of all the items in the “Gold” ticket type?
+            Write the number in /data/ticket-sales-gold.txt
+            '''
+            import sqlite3
+            db_file = params_list[1]
+            output_file = params_list[2]
+            ticket_type = params_list[0]
+
+            # Connect to the SQLite database
+            conn = sqlite3.connect(db_file)
+            cursor = conn.cursor()
+
+            # Query the total sales of the ticket type
+            cursor.execute(f"SELECT SUM(units * price) FROM tickets WHERE type = '{ticket_type}'")
+            total_sales = cursor.fetchone()[0]
+
+            # Write the total sales to the output file
+            with open(output_file, "w", encoding="utf-8") as f:
+                f.write(str(total_sales))
+
+            # Close the database connection
+            conn.close()
+            
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
     else:
         return JSONResponse(content={"error": "Error in calling the OpenAI API"})
