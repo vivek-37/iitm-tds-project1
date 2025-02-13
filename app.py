@@ -374,17 +374,18 @@ async def run(task_desc: str = Query(None, alias="task")):
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
         elif matched_task == phaseA["A5"]:
-            # write the first line of the 10 most recent .log files to a new file
+            # write the first line of the n most recent .log files to a new file
             from pathlib import Path
 
-            log_dir = Path(params_list[0])
-            output_file = params_list[1]
+            n = int(params_list[0])
+            log_dir = Path(params_list[1])
+            output_file = params_list[2]
 
             # Get all .log files sorted by modification time (newest first)
             log_files = sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
 
             # Take the 10 most recent log files
-            recent_logs = log_files[:10]
+            recent_logs = log_files[:n]
 
             first_lines = []
 
