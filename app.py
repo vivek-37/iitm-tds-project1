@@ -94,10 +94,11 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "sort_contacts",
+            "name": "sort_json_by_keys",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "keys": {"type": "array", "items": {"type": "string"}},
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
@@ -127,10 +128,11 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "extract_h1",
+            "name": "extract_specific_header",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "header_type": {"type": "string"},
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
@@ -143,10 +145,11 @@ tools = [
     {
         "type": "function",
         "function": {
-            "name": "extract_email",
+            "name": "extract_key",
             "parameters": {
                 "type": "object",
                 "properties": {
+                    "key": {"type": "string"},
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
@@ -363,12 +366,14 @@ async def run(task_desc: str = Query(None, alias="task")):
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
         elif matched_task == phaseA["A4"]:
-            # sort the contacts by last name and first name, source and destination files are json files
-            with open(params_list[0], "r") as f:
+            # sort the json by last name and first name (keys: key1 then key2), source and destination files are json files
+            keys = params_list[0]
+            with open(params_list[1], "r") as f:
                 contacts = json.load(f)
-                contacts.sort(key=lambda x: (x["last_name"], x["first_name"]))
+                # Sort the contacts by keys[0] then keys[1] till keys[n]
+                contacts.sort(key=lambda x: tuple(x[key] for key in keys))
 
-                with open(params_list[1], "w") as f:
+                with open(params_list[2], "w") as f:
                     json.dump(contacts, f, indent=4)
 
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
@@ -408,17 +413,30 @@ async def run(task_desc: str = Query(None, alias="task")):
 
         elif matched_task == phaseA["A6"]:
 
-            def extract_first_h1(file_path):
-                """Extract the first H1 title from a Markdown file."""
+            def extract_first_header_type(file_path, header_type):
+                header_map = {
+                    "h1": "#",
+                    "h2": "##",
+                    "h3": "###",
+                    "h4": "####",
+                    "h5": "#####",
+                    "h6": "######"
+                }
+                if header_type not in header_map:
+                    return None
+
+                prefix = header_map[header_type]
+
                 with open(file_path, "r", encoding="utf-8") as f:
                     for line in f:
-                        line = line.strip()
-                        if line.startswith("# "):  # Check for H1
-                            return line[2:].strip()  # Remove '# ' and extra spaces
-                return "Untitled"  # Default if no H1 found
+                        line = line.strip()                        
+                        if line.startswith(prefix+" "):  # Check for header_type
+                            return line[len(prefix)+1:].strip()  # Remove '# ' and extra spaces
+                return ""  # Default if no header_type found
 
-            # extract the first occurance of each H1 in the markdown files
-            docs_dir = params_list[0]
+            # extract the first occurance of each header_type in the markdown files
+            header_type = params_list[0]
+            docs_dir = params_list[1]
             index = {}
 
             # Walk through /data/docs/ to find .md files
@@ -426,14 +444,14 @@ async def run(task_desc: str = Query(None, alias="task")):
                 for file in files:
                     if file.endswith(".md"):
                         file_path = os.path.join(root, file)
-                        title = extract_first_h1(file_path)
+                        title = extract_first_header_type(file_path)
 
                         # Store in index without /data/docs/ prefix
                         relative_path = os.path.relpath(file_path, docs_dir)
                         index[relative_path] = title
 
             # Save index to /data/docs/index.json
-            index_file = params_list[1]
+            index_file = params_list[2]
 
             with open(index_file, "w", encoding="utf-8") as f:
                 json.dump(index, f, indent=4)
@@ -441,9 +459,10 @@ async def run(task_desc: str = Query(None, alias="task")):
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
         elif matched_task == phaseA["A7"]:
-            # extract the sender's email address from the email
-            email_file = params_list[0]
-            output_file = params_list[1]
+            # extract the key from the email
+            key = params_list[0]
+            email_file = params_list[1]
+            output_file = params_list[2]
 
             with open(email_file, "r", encoding="utf-8") as f:
                 email_content = f.read()
@@ -452,11 +471,11 @@ async def run(task_desc: str = Query(None, alias="task")):
             email_tool = [{
                 "type": "function",
                 "function": {
-                    "name": "extract_senders_email",
+                    "name": "extract_"+key,
                     "parameters": {
                         "type": "object",
                         "properties": {
-                            "sender's email": {"type": "string"}
+                            key: {"type": "string"}
                         },
                         "required": ["source", "destination"],
                         "additionalProperties": False
