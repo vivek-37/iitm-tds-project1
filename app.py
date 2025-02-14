@@ -102,7 +102,7 @@ tools = [
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
-                "required": ["source", "destination"],
+                "required": ["keys","source", "destination"],
                 "additionalProperties": False
             },
             "strict": True
@@ -136,7 +136,7 @@ tools = [
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
-                "required": ["source", "destination"],
+                "required": ["header_type","source", "destination"],
                 "additionalProperties": False
             },
             "strict": True
@@ -153,7 +153,7 @@ tools = [
                     "source": {"type": "string"},
                     "destination": {"type": "string"}
                 },
-                "required": ["source", "destination"],
+                "required": ["key","source", "destination"],
                 "additionalProperties": False
             },
             "strict": True
