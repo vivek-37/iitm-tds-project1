@@ -20,10 +20,7 @@ import time
 from PIL import Image, ImageDraw, ImageFont
 from faker import Faker
 
-# config = {"root": "/data"}
-# only for codespaces
-config = {}
-config["root"] = "/workspaces/iitm-tds-project1/data"
+config = {"root": "/data"}
 
 def num(str):
     return int(hashlib.sha256(str.encode()).hexdigest(), 16) % (2**32)
