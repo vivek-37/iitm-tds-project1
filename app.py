@@ -248,7 +248,7 @@ async def read(path: str = Query(None, alias="path")):
 
 # Find a way to store embeddings of the tasks instead of calling the API each time the program runs.
 
-@app.get("/run")
+@app.post("/run")
 async def run(task_desc: str = Query(None, alias="task")):
     ''' 
     Identify the task by embedding and comparing similarity with the tasks defined.
