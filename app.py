@@ -230,6 +230,7 @@ def extractParams(task_desc):
         "response_format": {"type": "json_object"}
     }
     response = requests.post(url, json=payload, headers=headers)
+    print(response.json())
     print(response.json()['choices'][0]['message']['tool_calls'][0]['function'])
     return response.json()['choices'][0]['message']['tool_calls'][0]['function']
 
