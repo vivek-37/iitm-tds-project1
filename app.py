@@ -316,6 +316,7 @@ async def run(task_desc: str = Query(None, alias="task")):
 
         elif matched_task == phaseA["A2"]:
             # format the unformatted markdown file with prettier
+            subprocess.run("apt update && apt install -y npm", shell=True, check=True)
             subprocess.run(["npx", "prettier@"+params_list[0], "--write", params_list[1]])
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
