@@ -1,3 +1,6 @@
+FROM node:20 AS builder
+RUN npm install -g npx
+
 FROM python:3.11-slim
 
 WORKDIR /app
