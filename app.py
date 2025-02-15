@@ -479,7 +479,7 @@ async def run(task_desc: str = Query(None, alias="task")):
                         "properties": {
                             key: {"type": "string"}
                         },
-                        "required": ["source", "destination"],
+                        "required": [key],
                         "additionalProperties": False
                     },
                     "strict": True
@@ -505,7 +505,7 @@ async def run(task_desc: str = Query(None, alias="task")):
             }
 
             email_response = requests.post(url_email, json=email_payload, headers=headers)
-            email = email_response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments']['sender\'s email']
+            email = email_response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments'][key]
             email = email.strip()
             with open(output_file, "w", encoding="utf-8") as f:
                 f.write(email)
