@@ -1,5 +1,8 @@
-FROM node:20 AS builder
-RUN npm install -g --unsafe-perm npx
+# Stage 1: Node.js builder
+FROM node:20-alpine AS builder
+
+# No need to install npx separately, it's included in Node.js
+WORKDIR /app
 
 FROM python:3.11-slim
 
