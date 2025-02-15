@@ -1,5 +1,5 @@
 FROM node:20 AS builder
-RUN npm install -g npx
+RUN npm install -g --unsafe-perm npx
 
 FROM python:3.11-slim
 
