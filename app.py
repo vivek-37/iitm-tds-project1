@@ -317,7 +317,7 @@ async def run(task_desc: str = Query(None, alias="task")):
 
         elif matched_task == phaseA["A2"]:
             # format the unformatted markdown file with prettier
-            subprocess.run("apt update && apt install -y npm", shell=True, check=True)
+            # subprocess.run("apt update && apt install -y npm", shell=True, check=True)
             subprocess.run(["npx", "prettier@"+params_list[0], "--write", params_list[1]])
             return JSONResponse(content={"task": matched_task, "similarity": max_similarity, "function": function_params})
 
@@ -391,7 +391,7 @@ async def run(task_desc: str = Query(None, alias="task")):
             # Get all .log files sorted by modification time (newest first)
             log_files = sorted(log_dir.glob("*.log"), key=lambda f: f.stat().st_mtime, reverse=True)
 
-            # Take the 10 most recent log files
+            # Take the n most recent log files
             recent_logs = log_files[:n]
 
             first_lines = []
@@ -446,7 +446,7 @@ async def run(task_desc: str = Query(None, alias="task")):
                 for file in files:
                     if file.endswith(".md"):
                         file_path = os.path.join(root, file)
-                        title = extract_first_header_type(file_path)
+                        title = extract_first_header_type(file_path, header_type)
 
                         # Store in index without /data/docs/ prefix
                         relative_path = os.path.relpath(file_path, docs_dir)
