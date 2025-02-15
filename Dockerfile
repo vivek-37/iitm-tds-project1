@@ -19,6 +19,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY --from=builder /usr/local/bin/npx /usr/local/bin/npx
 COPY --from=builder /usr/local/bin/node /usr/local/bin/node
 COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
+COPY --from=builder /usr/local/lib/node_modules/.bin /usr/local/lib/node_modules/.bin
 
 # Create the /data directory and set permissions to make it writable by all users
 RUN mkdir -p /data && chmod 777 /data
