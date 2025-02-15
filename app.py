@@ -505,8 +505,20 @@ async def run(task_desc: str = Query(None, alias="task")):
             }
 
             email_response = requests.post(url_email, json=email_payload, headers=headers)
-            email = email_response.json()['choices'][0]['message']['tool_calls'][0]['function']['arguments'][key]
-            email = email.strip()
+            email_response.raise_for_status()  # Raise an exception for HTTP errors
+
+            # Parse the response
+            tool_calls = email_response.json()['choices'][0]['message']['tool_calls']
+            if not tool_calls:
+                raise ValueError("No tool_calls found in the response.")
+
+            arguments_raw = tool_calls[0]['function']['arguments']
+            arguments = json.loads(arguments_raw) if isinstance(arguments_raw, str) else arguments_raw
+
+            if key not in arguments:
+                raise KeyError(f"Key '{key}' not found in arguments.")
+
+            email = arguments[key].strip()
             with open(output_file, "w", encoding="utf-8") as f:
                 f.write(email)
 
