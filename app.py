@@ -527,7 +527,7 @@ async def run(task_desc: str = Query(None, alias="task")):
         elif matched_task == phaseA["A8"]:
             # extract the credit card number from the image
             import base64
-            image_file = params_list[0]
+            image_path = params_list[0]
             output_file = params_list[1]
 
             # Extract and validate card number
