@@ -1,5 +1,5 @@
 # iitm-tds-project1
-### Project description (what was asked of me to do):
+## Project description (what was asked of me to do):
 #### Background
 You have joined the operations team at DataWorks Solutions, a company that processes large volumes of log files, reports, and code artifacts to generate actionable insights for internal stakeholders. In order to improve operational efficiency and consistency, the company has mandated that routine tasks be automated and integrated into their Continuous Integration (CI) pipeline.
 
@@ -50,5 +50,19 @@ The DataWorks business team has listed broad additional tasks for automation. Bu
 - B8. Transcribe audio from an MP3 file
 - B9. Convert Markdown to HTML
 - B10. Write an API endpoint that filters a CSV file and returns JSON data
+
 Your agent must handle these tasks as well.
 The business team has not promised to limit themselves to these tasks. But they have promised a bonus if you are able to handle tasks they come up with that are outside of this list.
+
+#### Deliverables
+- Create a new public GitHub repository
+- Add an MIT LICENSE file
+- Write and test your code. Call POST /run?task=... with a few tasks and check if GET /read?path=... creates the correct files.
+- Commit and push your code
+- Create a Dockerfile that builds your application
+- Publish your Docker image publicly to Docker Hub
+- Ensure that running your image via `podman run --rm -e AIPROXY_TOKEN=$AIPROXY_TOKEN -p 8000:8000 $IMAGE_NAME` automatically serves the API at `http://localhost:8000/run?task=...` and `http://localhost:8000/read?path=...`
+Submit in this Google Form the URL of your GitHub repository (https://github.com/user-name/repo-name) and your Docker image name (user-name/repo-name)
+
+## Actual Progress
+When the deadline ran out, my code worked currectly for a1-a7, a8 needed fixing, a9 and a10 were untested. Phase B were not attempted.
