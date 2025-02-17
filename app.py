@@ -533,30 +533,31 @@ async def run(task_desc: str = Query(None, alias="task")):
             # Extract and validate card number
             with open(image_path, "rb") as image_file:
                 image_data = image_file.read()
+                img_type = image_path.split('.')[1]
                 b64_image = base64.b64encode(image_data).decode('utf-8')
 
                 url_img = "https://aiproxy.sanand.workers.dev/openai/v1/chat/completions"
 
                 img_payload = {
-                    "model": "gpt-4-turbo",
+                    "model": "gpt-4o-mini",
                     "messages": [
-                        {"role": "system", "content": "Extract only the credit card number from the given image. Do not include spaces or any other characters."},
                         {
                             "role": "user", "content": [
                             {
                                 "type": "text",
-                                "text": "Extract the credit card digits from this image."
+                                "text": "Extract only the credit card number from the given image. Do not include spaces or any other characters."
                             }, 
                             {
                                 "type": "image_url",
-                                "image_url": {"url": f"data:image/jpeg;base64,{b64_image}"} 
+                                "image_url": {"url": f"data:image/{img_type};base64,{b64_image}"} 
                             }
                             ]
                         }
                     ]
                 }
-                response = requests.post(url_img, headers, json=img_payload)
-                extracted_number = response["choices"][0]["message"]["content"].strip()
+                response = requests.post(url_img, headers=headers, json=img_payload)
+                print(response.json())
+                extracted_number = response.json()["choices"][0]["message"]["content"].strip()
                 # Remove spaces and dashes to ensure proper formatting
                 formatted_number = extracted_number.replace(" ", "").replace("-", "")
 
